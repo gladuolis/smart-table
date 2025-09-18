@@ -1,64 +1,77 @@
-import {cloneTemplate} from "../lib/utils.js";
+import { cloneTemplate } from "../lib/utils.js";
 
-/**
- * Инициализирует таблицу и вызывает коллбэк при любых изменениях и нажатиях на кнопки
- *
- * @param {Object} settings
- * @param {(action: HTMLButtonElement | undefined) => void} onAction
- * @returns {{container: Node, elements: *, render: render}}
- */
 export function initTable(settings, onAction) {
-    const {tableTemplate, rowTemplate, before, after} = settings;
-    const root = cloneTemplate(tableTemplate);
+  const { tableTemplate, rowTemplate, before, after } = settings;
+  const root = cloneTemplate(tableTemplate);
 
-    // @todo: #1.2 — добавить шаблоны до и после таблицы
-before.reverse().forEach(subName => {
-    // Клонируем шаблон и сохраняем объект в root
+  // ✅ Шаблоны до и после таблицы
+  before.reverse().forEach((subName) => {
     root[subName] = cloneTemplate(subName);
-    // Добавляем ДО таблицы (в начало контейнера)
     root.container.prepend(root[subName].container);
-});
+  });
 
-after.forEach(subName => {
-    // Клонируем шаблон и сохраняем объект в root
+  after.forEach((subName) => {
     root[subName] = cloneTemplate(subName);
-    // Добавляем ПОСЛЕ таблицы (в конец контейнера)
     root.container.append(root[subName].container);
-});
+  });
 
-    // @todo: #1.3 — добавить обработчики событий
-root.container.addEventListener('change', () => {
-    onAction(); // Вызываем onAction без аргументов
-});
+  // ✅ Обработчики событий
+  root.container.addEventListener("change", () => {
+    onAction();
+  });
 
-root.container.addEventListener('reset', () => {
-    setTimeout(onAction); // Отложенный вызов с небольшой задержкой
-});
+  root.container.addEventListener("reset", () => {
+    setTimeout(onAction);
+  });
 
-root.container.addEventListener('submit', (e) => {
-    e.preventDefault(); // Предотвращаем стандартное поведение формы
-    onAction(e.submitter); // Передаем сабмиттер в onAction
-});
+  root.container.addEventListener("submit", (e) => {
+    e.preventDefault();
+    onAction(e.submitter);
+  });
 
-    const render = (data) => {
-    // @todo: #1.1 — преобразовать данные в массив строк на основе шаблона rowTemplate
-    const nextRows = data.map(item => {
-        const row = cloneTemplate(rowTemplate);
-        
-        // Перебираем ключи объекта item
-        Object.keys(item).forEach(key => {
-            // Проверяем, существует ли элемент с таким ключом в row.elements
-            if (row.elements[key]) {
-                // Устанавливаем текстовое содержимое элемента
-                row.elements[key].textContent = item[key];
-            }
-        });
-        
-        return row.container; // Возвращаем DOM-элемент строки
+  const render = (data) => {
+    const nextRows = data.map((item) => {
+      const row = cloneTemplate(rowTemplate);
+
+      Object.keys(item).forEach((key) => {
+        if (row.elements[key]) {
+          const element = row.elements[key];
+          const value = item[key];
+
+          // ✅ УЛУЧШЕННАЯ ПРОВЕРКА ТИПОВ ЭЛЕМЕНТОВ:
+          if (
+            element.tagName === "INPUT" ||
+            element.tagName === "SELECT" ||
+            element.tagName === "TEXTAREA"
+          ) {
+            // Для полей ввода используем value
+            element.value = value !== null && value !== undefined ? value : "";
+          } else if (element.tagName === "IMG") {
+            // Для изображений используем src
+            element.src = value || "";
+          } else if (element.tagName === "A" && element.hasAttribute("href")) {
+            // Для ссылок используем href
+            element.href = value || "#";
+            element.textContent = value || "";
+          } else if (
+            element.tagName === "CHECKBOX" ||
+            element.type === "checkbox"
+          ) {
+            // Для чекбоксов используем checked
+            element.checked = Boolean(value);
+          } else {
+            // Для остальных элементов используем textContent
+            element.textContent =
+              value !== null && value !== undefined ? value : "";
+          }
+        }
+      });
+
+      return row.container;
     });
-    
-    root.elements.rows.replaceChildren(...nextRows);
-}
 
-    return {...root, render};
+    root.elements.rows.replaceChildren(...nextRows);
+  };
+
+  return { ...root, render };
 }
